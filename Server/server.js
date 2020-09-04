@@ -6,11 +6,8 @@ const cors = require("cors");
 const puppeteer = require("puppeteer");
 const { request } = require("express");
 const { element } = require("svelte/internal");
+const score = require("./score");
 require("events").EventEmitter.defaultMaxListeners = 100;
-
-let tf = require("@tensorflow/tfjs");
-
-let use = require("@tensorflow-models/universal-sentence-encoder");
 
 app.use(cors());
 
@@ -19,7 +16,9 @@ app.get("/", (req, res) => res.send("hello world"));
 app.get("/search", async (req, res) => {
   let search = "";
   search = req.query.query;
+  search = search.replace(/ /g, "+");
   console.log(search);
+  let sim_score;
   const getdetails_flipkart = async (url) => {
     try {
       const browser = await puppeteer.launch({ args: ["--no-sandbox"] });
@@ -28,9 +27,11 @@ app.get("/search", async (req, res) => {
       const body = await page.evaluate(() => {
         let word = [];
         let links = [];
-        let price;
-        price = document.querySelector("._1vC4OE").textContent;
-        price = parseInt(price.split("₹")[1].replace(/\,/g, ""));
+        let prices = [];
+        let flipkart;
+        document
+          .querySelectorAll("._1vC4OE ")
+          .forEach((element) => prices.push(element.innerText));
         if (document.querySelector("._3wU53n")) {
           document
             .querySelectorAll("._3wU53n")
@@ -46,12 +47,7 @@ app.get("/search", async (req, res) => {
             .querySelectorAll("._2cLu-l")
             .forEach((element) => links.push(element.href));
         }
-        flipkart = {
-          word: word[0],
-          link: links[0],
-          price: price,
-        };
-        return flipkart;
+        return { word, links, prices };
       });
 
       return body;
@@ -61,23 +57,35 @@ app.get("/search", async (req, res) => {
   };
   try {
     let final = [];
-    let flipkart;
-    const products = await amazonScraper.products({
-      keyword: search,
-      number: 11,
-      save: true,
-      host: "www.amazon.in",
-    });
-    for (let i = 0; i < products.result.length; i++) {
-      let x = {};
-      url_flipkart = `https://www.flipkart.com/search?q=${products.result[i].title}`;
-      flipkart = await getdetails_flipkart(url_flipkart);
-      console.log(flipkart);
-      x["amazon"] = products.result[i];
-      x["flipkart"] = flipkart;
-      final.push(x);
+    let products = [];
+    let flipkart = {};
+    let x = {};
+    url_flipkart = `https://www.flipkart.com/search?q=${search}`;
+    y = await getdetails_flipkart(url_flipkart);
+    for (let i = 0; i < y.word.length; i++) {
+      let product = {};
+      let finalproduct = {};
+      let list_sentences = [];
+      const amazon = await amazonScraper.products({
+        keyword: y.word[i],
+        number: 1,
+        save: true,
+        host: "www.amazon.in",
+      });
+      product["title"] = y.word[i];
+      product["url"] = y.links[i];
+      product["price"] = y.prices[i];
+      finalproduct["flipkart"] = product;
+      if (amazon.result.length > 0) {
+        list_sentences = [y.word, amazon.result[0].title];
+        // sim_score = await score.sim_score(list_sentences);
+        // console.log(sim_score);
+        // if (sim_score.length > 0) {
+        finalproduct["amazon"] = amazon.result;
+      }
+      products.push(finalproduct);
     }
-    res.status(200).json(final);
+    res.status(200).json(products);
   } catch (error) {
     console.log(error);
     res.status(400).json({ Error: error.message });
