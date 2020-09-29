@@ -18,7 +18,17 @@ app.get("/search", async (req, res) => {
   search = req.query.query;
   search = search.replace(/ /g, "+");
   console.log(search);
+  list_sentences = [
+    "Realme 5i (Forest Green, 4GB RAM, 128GB Storage)",
+    "Realme 5i (Aqua Blue, 4GB RAM, 64GB Storage)",
+  ];
   let sim_score;
+  try {
+    sim_score = await score.sim_score(list_sentences);
+    console.log(sim_score);
+  } catch (error) {
+    console.log(error);
+  }
   const getdetails_flipkart = async (url) => {
     try {
       const browser = await puppeteer.launch({ args: ["--no-sandbox"] });
@@ -38,6 +48,13 @@ app.get("/search", async (req, res) => {
             .forEach((element) => word.push(element.innerHTML));
           document
             .querySelectorAll("._31qSD5")
+            .forEach((element) => links.push(element.href));
+        } else if (document.querySelector("_2mylT6")) {
+          document
+            .querySelectorAll("._2mylT6")
+            .forEach((element) => word.push(element.innerHTML));
+          document
+            .querySelectorAll("._2mylT6")
             .forEach((element) => links.push(element.href));
         } else {
           document
@@ -77,13 +94,17 @@ app.get("/search", async (req, res) => {
       product["price"] = y.prices[i];
       finalproduct["flipkart"] = product;
       if (amazon.result.length > 0) {
-        list_sentences = [y.word, amazon.result[0].title];
-        // sim_score = await score.sim_score(list_sentences);
-        // console.log(sim_score);
-        // if (sim_score.length > 0) {
-        finalproduct["amazon"] = amazon.result;
+        list_sentences = [y.word[i], amazon.result[0].title];
+        try {
+          sim_score = await score.sim_score(list_sentences);
+        } catch (error) {
+          console.log(error);
+        }
+        if (sim_score[0]) {
+          finalproduct["amazon"] = amazon.result;
+          products.push(finalproduct);
+        }
       }
-      products.push(finalproduct);
     }
     res.status(200).json(products);
   } catch (error) {

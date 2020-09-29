@@ -24,11 +24,15 @@ let similarity = (a, b) => {
 };
 
 let get_embeddings = (list_sentences, callback) => {
-  use.load().then((model) => {
-    model.embed(list_sentences).then((embeddings) => {
-      callback(embeddings);
+  try {
+    use.load().then((model) => {
+      model.embed(list_sentences).then((embeddings) => {
+        callback(embeddings);
+      });
     });
-  });
+  } catch (error) {
+    console.log(error);
+  }
 };
 
 let cosine_similarity_matrix = (matrix) => {
@@ -57,7 +61,6 @@ let getScore = (cosineSimilarityMatrix) => {
     for (let j = i; j < this_row.length; j++) {
       if (i != j) {
         let sim_score = cosineSimilarityMatrix[i][j];
-
         if (sim_score > input_threshold) {
           score = true;
         } else {
@@ -77,6 +80,7 @@ let get_similarity = async (list_sentences) => {
     let cosineSimilarityMatrix = cosine_similarity_matrix(
       embeddings.arraySync()
     );
+    score = [];
 
     score.push(getScore(cosineSimilarityMatrix));
     console.log(score);
@@ -86,11 +90,7 @@ let get_similarity = async (list_sentences) => {
 };
 
 let sim_score = async (list_sentences) => {
-  try {
-    await get_similarity(list_sentences);
-  } catch (error) {
-    console.log(error);
-  }
+  await get_similarity(list_sentences);
   return score;
 };
 

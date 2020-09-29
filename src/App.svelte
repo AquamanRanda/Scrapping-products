@@ -1,48 +1,84 @@
 <script>
 	import { Router, Route } from "svelte-routing";
-  import NavLink from "./components/NavLink.svelte";
   import axios from 'axios';
-  const onSearch = (search) => {
-    axios.get(`http://localhost:3000/search?query=${search}`)
-        .then(res => {
-          products = res.data;
-          console.log(products);
-          clicked=true;
-          console.log(products.title);
-        })
-  }
+  import Card from './components/Card.svelte'
+  import Navbar from './components/Navbar.svelte';
+  import { Circle3 } from 'svelte-loading-spinners'
   let search='';
-  let products = {};
   let clicked=false;
+  let promise;
+  const loadItems = async (search) => {
+    search.replace(/ /g, '%20');
+    const response = await axios.get(`http://localhost:3000/search?query=${search}`)
+    if (response.status === 200) {
+      console.log(response.data);
+      clicked = true;
+      return response;
+    } else {
+      throw new Error(response.statusText);
+    }
+  }
+  const handleClick = (Search) => {
+    promise = loadItems(search);
+  }
 </script>
-<h1 class="flex justify-center pt-3">Scrapping Products</h1>
-<div class="flex justify-center pt-5 container">
-    <input class="" type="text" name="search" id="search" bind:value={search}>
-    <button on:click="{onSearch(search)}">Search</button>
+<Navbar />
+<div class="flex justify-center pt-16">
+    <input class="border rounded-lg border-solid border-black " type="text" name="search" id="search" bind:value={search}>
+    <div class="pl-10">
+    <button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full" on:click="{handleClick(search)}">Search</button></div>
 </div>
-{#if clicked}
-{#each products as product}
-<div class="flex justify-center pt-5 rounded-t-sm border-black">
-    <div class="container p-2">
-        <p class="pt-5">{product.amazon.title}</p>
-        <div>
-            <img class="pt-6" src="{product.amazon.thumbnail}" alt="sdadsa" width="200" height="300">
-        </div>
-    <p class="pt-3 pl-4">Amazon's Price: {product.amazon.price}</p> {#if product.flipkart.price} <p class="pt-3">Flipkart's Price: {product.flipkart.price}</p> {/if}
-    <br />
-    <a href="{product.amazon.url}" target="_blank"><button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">View Product on Amazon</button></a> 
-    {#if product.flipkart.price}<a href="{product.flipkart.flink}" target="_blank"><button class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">View Product on Flipkart</button></a>
-    {:else}<button class="bg-blue-500 text-white font-bold py-2 px-4 rounded opacity-50 cursor-not-allowed">
-        not available in flipkart
-      </button>
-    {/if}
-    </div>
-</div>
-{/each}
-{/if}
+{#await promise}
+  <div class="flex justify-center pt-10">
+  <Circle3 size="60" unit="px" />
+  </div>
+{:then items}
+  <section class="card-wrapper grid">
+  {#if clicked}
+  {#each items.data as item}
+    <Card {item} />
+  {/each}
+  {/if}
+</section>
+{:catch error}
+  <p style="color: red">{error.message}</p>
+{/await}
 
 <style global>
   @tailwind base;
   @tailwind components;
   @tailwind utilities;
+
+  .grid {
+    width: 70vw;
+    margin: 10vh auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-gap: 10px;
+    justify-items: stretch;
+  }
+
+  @media screen and (max-width: 1600px) {
+    .grid {
+      width: 80vw;
+    }
+  }
+
+  @media screen and (max-width: 1400px) {
+    .grid {
+      width: 90vw;
+    }
+  }
+
+  @media screen and (max-width: 1200px) {
+    .grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media screen and (max-width: 800px) {
+    .grid {
+      grid-template-columns: repeat(1, 1fr);
+    }
+  }
 </style>
